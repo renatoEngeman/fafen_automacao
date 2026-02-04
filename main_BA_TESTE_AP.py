@@ -76,10 +76,11 @@ def consolidar_simples(especificacoes_entrada, caminho_saida, projeto_alvo):
 
     except Exception as e:
         logging.error(f"Erro no processamento: {e}")
+
 # --- EXECUÇÃO ---
 if __name__ == "__main__":
     ARQUIVOS = [{'nome': r'C:\Users\operacoes\Downloads\automacao_base_total\base_FAFENS_kogni.xlsx'}]
     PROJETO = 'PB - FAFEN O&M BA - OS 177/25'
-    SAIDA = 'Dados_FAFEN_BA_pedidos_notas.xlsx'
+    SAIDA = 'Dados_FAFEN_BA_TESTE_AP.xlsx'
 
     consolidar_simples(ARQUIVOS, SAIDA, PROJETO)

@@ -1,7 +1,7 @@
 import os
 import logging
 import pandas as pd
-from datetime import datetime # Ajuste na importação
+import datetime
 import shutil
 from de_para_grupos import DE_PARA_GRUPOS
 
@@ -12,18 +12,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 NOT_APPLICABLE_VALUE = '__N/A__'
 PEDIDOS_PARA_FILTRAR = ['Pedido Atendido', 'Pedido em Aberto', 'Pedido Encerrado', 'Pedido em Aprovação']
 ITENS_PARA_FILTRAR = ['Item Atendido', 'Item em Aberto', 'Aprovar Alçada','Parcialmente Atendido']
+APS_PARA_FILTRAR = ['EM ABERTO', 'APROVADO']
 
 # --- NOVO: DICIONÁRIO DE SUBSTITUIÇÃO DE GRUPOS ---
+# Coloque aqui: 'Nome Atual na Planilha': 'Nome Novo Desejado'
 
 
-def consolidar_simples(especificacoes_entrada, caminho_saida, projetos_alvo):
+def consolidar_simples(especificacoes_entrada, caminho_saida, projeto_alvo):
     COLUNA_GRUPO = 'nome_do_grupo'
     list_df = []
-
-    # Captura data atual
-    hoje = datetime.now()
-    mes_atual = hoje.month
-    ano_atual = hoje.year
 
     try:
         for spec in especificacoes_entrada:
@@ -35,32 +32,8 @@ def consolidar_simples(especificacoes_entrada, caminho_saida, projetos_alvo):
             logging.info(f"Lendo: {caminho}")
             df = pd.read_excel(caminho)
 
-            # --- NOVA LÓGICA DE DATAS (MÊS VIGENTE) ---
-            col_doc = 'data_da_entrada_da_nota'
-            col_emissao = 'dt_emissao_do_pedido'
-
-            # Inicializa máscaras como False
-            cond_doc = pd.Series(False, index=df.index)
-            cond_emissao = pd.Series(False, index=df.index)
-
-            # Valida Data do Documento
-            if col_doc in df.columns:
-                df[col_doc] = pd.to_datetime(df[col_doc], errors='coerce')
-                cond_doc = (df[col_doc].dt.month == mes_atual) & (df[col_doc].dt.year == ano_atual)
-
-            # Valida Data de Emissão
-            if col_emissao in df.columns:
-                df[col_emissao] = pd.to_datetime(df[col_emissao], errors='coerce')
-                cond_emissao = (df[col_emissao].dt.month == mes_atual) & (df[col_emissao].dt.year == ano_atual)
-
-            # Aplica o filtro "SOMA" (União): Mantém se for mês vigente em UM ou no OUTRO
-            df = df[cond_doc | cond_emissao]
-            
-            logging.info(f"Registros após filtro de data ({mes_atual}/{ano_atual}): {len(df)}")
-            # ----------------------------------------------
-
-            # 1. Tratamento de Nulos
-            cols_check = ['projeto', 'situacao_do_pedido', 'situacao_do_item', COLUNA_GRUPO]
+            # 1. Tratamento de Nulos para garantir que vazios sejam considerados
+            cols_check = ['projeto', 'situacao_do_pedido', 'situacao_do_item','status_ap', COLUNA_GRUPO]
             for col in cols_check:
                 if col in df.columns:
                     df[col] = df[col].fillna(NOT_APPLICABLE_VALUE).astype(str).str.strip()
@@ -68,34 +41,38 @@ def consolidar_simples(especificacoes_entrada, caminho_saida, projetos_alvo):
             if 'valor_rateado' in df.columns:
                 df['valor_rateado'] = pd.to_numeric(df['valor_rateado'], errors='coerce').fillna(0)
 
-            # 2. Filtro de Projetos (Mantido para LISTA de projetos)
-            df = df[df['projeto'].isin(projetos_alvo)]
+            # 2. Filtro de Projeto
+            df = df[df['projeto'] == projeto_alvo]
 
-            # 3. Filtro de Situação
+            # 3. Filtro de Situação (Pedido e Item) aceitando os vazios (__N/A__)
             cond_pedido = (df['situacao_do_pedido'].isin(PEDIDOS_PARA_FILTRAR)) | (df['situacao_do_pedido'] == NOT_APPLICABLE_VALUE)
             cond_item = (df['situacao_do_item'].isin(ITENS_PARA_FILTRAR)) | (df['situacao_do_item'] == NOT_APPLICABLE_VALUE)
+            cond_ap = (df['status_ap'].isin(APS_PARA_FILTRAR)) | (df['status_ap'] == NOT_APPLICABLE_VALUE)
             
-            df_filtrado = df[cond_pedido & cond_item].copy()
+            df_filtrado = df[cond_pedido & cond_item & cond_ap].copy()
             list_df.append(df_filtrado)
 
-        if not list_df or all(d.empty for d in list_df):
+        if not list_df:
             logging.error("Nenhum dado encontrado para processar.")
-            return
+            #return
 
-        # 4. Consolidação
+        # 4. Consolidação e Agrupamento Total
         df_total = pd.concat(list_df, ignore_index=True)
         
-        # Substituição de nomes de grupo
+        # --- APLICAÇÃO DA SUBSTITUIÇÃO DE NOMES DE GRUPO ---
         if COLUNA_GRUPO in df_total.columns:
             df_total[COLUNA_GRUPO] = df_total[COLUNA_GRUPO].replace(DE_PARA_GRUPOS)
 
-        # Agrupa por 'projeto' e 'grupo'
-        resumo_final = df_total.groupby(['projeto', COLUNA_GRUPO])['valor_rateado'].sum().reset_index()
+        # Agrupa por grupo e soma os valores (Pega todos os grupos da base)
+        resumo_final = df_total.groupby(COLUNA_GRUPO)['valor_rateado'].sum().reset_index()
 
-        # 5. Exportação
+        # 5. Exportação (Aba única)
         with pd.ExcelWriter(caminho_saida, engine='xlsxwriter') as writer:
             resumo_final.to_excel(writer, sheet_name='Resumo_Fafen', index=False, startcol=0)
-            logging.info(f"✅ Sucesso! Total de {len(resumo_final)} linhas exportadas para {caminho_saida}")
+            logging.info(f"✅ Sucesso! Total de {len(resumo_final)} grupos exportados.")
+
+        # Opcional: Cópia para o OneDrive se o caminho estiver disponível
+        # shutil.copy2(caminho_saida, r'CAMINHO_DO_ONEDRIVE_AQUI')
 
     except Exception as e:
         logging.error(f"Erro no processamento: {e}")
