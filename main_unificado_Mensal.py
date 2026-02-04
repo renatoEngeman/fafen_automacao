@@ -80,8 +80,8 @@ def consolidar_simples(especificacoes_entrada, caminho_saida, projetos_alvo):
             list_df.append(df_filtrado)
 
         if not list_df or all(d.empty for d in list_df):
-            logging.error("Nenhum dado encontrado para processar.")
-            return
+            logging.info("Nenhum dado encontrado para processar.")
+            #return
 
         # 4. Consolidação
         df_total = pd.concat(list_df, ignore_index=True)

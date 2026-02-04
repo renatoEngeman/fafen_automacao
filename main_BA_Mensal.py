@@ -75,8 +75,8 @@ def consolidar_simples(especificacoes_entrada, caminho_saida, projeto_alvo):
             list_df.append(df_filtrado)
 
         if not list_df or all(d.empty for d in list_df):
-            logging.error("Nenhum dado encontrado após os filtros.")
-            return
+            logging.info("Nenhum dado encontrado após os filtros.")
+            #return
 
         df_total = pd.concat(list_df, ignore_index=True)
         
