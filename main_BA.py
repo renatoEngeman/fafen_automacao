@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # --- CONFIGURAÇÕES FIXAS ---
 NOT_APPLICABLE_VALUE = '__N/A__'
 PEDIDOS_PARA_FILTRAR = ['Pedido Atendido', 'Pedido em Aberto', 'Pedido Encerrado', 'Pedido em Aprovação']
-ITENS_PARA_FILTRAR = ['Item Atendido', 'Item em Aberto', 'Aprovar Alçada','Parcialmente Atendido']
+ITENS_PARA_FILTRAR = ['Item Atendido', 'Item em Aberto', 'Aprovar Alçada']
 APS_PARA_FILTRAR = ['EM ABERTO', 'APROVADO']
 
 # --- NOVO: DICIONÁRIO DE SUBSTITUIÇÃO DE GRUPOS ---
@@ -33,7 +33,7 @@ def consolidar_simples(especificacoes_entrada, caminho_saida, projeto_alvo):
             df = pd.read_excel(caminho)
 
             # 1. Tratamento de Nulos para garantir que vazios sejam considerados
-            cols_check = ['projeto', 'situacao_do_pedido', 'situacao_do_item','status_ap', COLUNA_GRUPO]
+            cols_check = ['projeto', 'situacao_do_pedido', 'situacao_do_item', COLUNA_GRUPO]
             for col in cols_check:
                 if col in df.columns:
                     df[col] = df[col].fillna(NOT_APPLICABLE_VALUE).astype(str).str.strip()
@@ -54,7 +54,7 @@ def consolidar_simples(especificacoes_entrada, caminho_saida, projeto_alvo):
 
         if not list_df:
             logging.error("Nenhum dado encontrado para processar.")
-            #return
+            return
 
         # 4. Consolidação e Agrupamento Total
         df_total = pd.concat(list_df, ignore_index=True)
@@ -76,6 +76,7 @@ def consolidar_simples(especificacoes_entrada, caminho_saida, projeto_alvo):
 
     except Exception as e:
         logging.error(f"Erro no processamento: {e}")
+
 # --- EXECUÇÃO ---
 if __name__ == "__main__":
     ARQUIVOS = [{'nome': r'C:\Users\operacoes\Downloads\automacao_base_total\base_FAFENS_kogni.xlsx'}]
